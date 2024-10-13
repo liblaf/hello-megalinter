@@ -36,11 +36,12 @@ jobs:
       - id: ml
         name: MegaLinter
         uses: oxsecurity/megalinter@v8
-        # https://megalinter.io/latest/config-file/
+        # ref: <https://megalinter.io/latest/config-file/>
         env:
-          # Common Variables
-          VALIDATE_ALL_CODEBASE: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Common Variables
+          MEGALINTER_CONFIG: .github/.mega-linter.yaml
+          VALIDATE_ALL_CODEBASE: true
           # Linters
           PYTHON_PYRIGHT_DISABLE_ERRORS: true
           # Reporters
@@ -73,7 +74,15 @@ jobs:
         run: cat megalinter-report.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: megalinter-reports
       - name: Remove MegaLinter reports
-        run: sudo rm --force --recursive mega-linter.log megalinter-reports/
+        run: >-
+          sudo rm --force --recursive
+          .checkov.yml
+          .devskim.json
+          kics.config
+          mega-linter.log
+          megalinter-reports/
+      - name: List all files
+        run: ls --all --classify --human-readable -l --recursive
       - id: cpr
         if: >-
           steps.ml.outputs.has_updated_sources == 1 &&
