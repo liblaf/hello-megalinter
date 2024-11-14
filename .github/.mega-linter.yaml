@@ -2,7 +2,6 @@
 # ref: <https://megalinter.io/latest/config-file/>
 
 # ----------------------------- Common Variables ----------------------------- #
-APPLY_FIXES: all
 ENABLE_LINTERS:
   - PYTHON_RUFF
 IGNORE_GENERATED_FILES: true
