@@ -1,6 +1,5 @@
 #:schema https://json.schemastore.org/ruff.json
 builtins = ["ic"]
-fix = true
 show-fixes = true
 target-version = "py312"
 
