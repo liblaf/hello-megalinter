@@ -2,8 +2,6 @@
 # ref: <https://megalinter.io/latest/config-file/>
 
 # ----------------------------- Common Variables ----------------------------- #
-ENABLE_LINTERS:
-  - PYTHON_RUFF
 IGNORE_GENERATED_FILES: true
 LINTER_RULES_PATH: https://github.com/liblaf/.github/raw/refs/heads/main/.github/linters/
 SHOW_ELAPSED_TIME: true
