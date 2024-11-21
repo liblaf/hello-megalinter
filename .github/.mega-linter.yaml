@@ -3,10 +3,10 @@
 
 # ----------------------------- Common Variables ----------------------------- #
 IGNORE_GENERATED_FILES: true
+LOG_LEVEL: DEBUG
 # LINTER_RULES_PATH: https://github.com/liblaf/.github/raw/refs/heads/main/.github/linters/
 SHOW_ELAPSED_TIME: true
 
 PYTHON_RUFF_ARGUMENTS:
   - --no-fix
-
-REPOSITORY_DEVSKIM_CONFIG_FILE: https://github.com/liblaf/.github/raw/refs/heads/main/.github/linters/.devskim.json
+REPOSITORY_CHECKOV_CONFIG_FILE: https://github.com/liblaf/.github/raw/refs/heads/main/.github/linters/.checkov.yml
