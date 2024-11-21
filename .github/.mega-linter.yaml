@@ -10,3 +10,5 @@ SHOW_ELAPSED_TIME: true
 
 PYTHON_RUFF_ARGUMENTS:
   - --no-fix
+
+REPOSITORY_DEVSKIM_CONFIG_FILE: https://github.com/liblaf/.github/raw/refs/heads/main/.github/linters/.devskim.json
