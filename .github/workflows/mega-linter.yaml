@@ -1,20 +1,12 @@
-# ref: <https://github.com/oxsecurity/megalinter/blob/225e1b5c3a044775005d0ec772cabee5d21006ed/mega-linter-runner/generators/mega-linter/templates/mega-linter.yml>
-# ref: <https://megalinter.io>
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# https://github.com/oxsecurity/megalinter/blob/main/mega-linter-runner/generators/mega-linter/templates/mega-linter.yml
+# https://megalinter.io
 
 name: MegaLinter
 
 on:
   push:
   pull_request:
-
-env:
-  APPLY_FIXES: all
-  APPLY_FIXES_EVENT: pull_request
-  APPLY_FIXES_MODE: commit
-
-concurrency:
-  group: ${{ github.ref }}-${{ github.workflow }}
-  cancel-in-progress: true
 
 jobs:
   mega-linter:
@@ -29,14 +21,45 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ github.token }}
+      - name: Prepare Linter Rules
+        run: |-
+          LINTER_RULES_PATH="https://github.com/liblaf/.github/raw/refs/heads/main/.github/linters"
+          LINTER_RULES=(
+            .checkov.yml
+            .devskim.json
+            .ruff.toml
+            kics.config
+            pyrightconfig.json
+          )
+          MISSING_LINTER_RULES=()
+
+          function download() {
+            local_path=".github/linters/$1"
+            remote_path="$LINTER_RULES_PATH/$1"
+            if [[ -f ".github/linters/$1" ]]; then
+              return
+            fi
+            MISSING_LINTER_RULES+=("$1")
+            mkdir --parents --verbose ".github/linters"
+            if wget --output-document="$local_path" "$remote_path"; then
+              printf "\x1b[92mDOWNLOAD SUCCESS : %s => %s\x1b[0m\n" "$remote_path" "$local_path"
+            else
+              printf "\x1b[91mDOWNLOAD FAILED  : %s => %s\x1b[0m\n" "$remote_path" "$local_path"
+              rm --force "$local_path"
+            fi
+          }
+
+          for rule in "${LINTER_RULES[@]}"; do
+            download "$rule"
+          done
+
+          echo "MISSING_LINTER_RULES=${MISSING_LINTER_RULES[*]}" >> "$GITHUB_ENV"
       - id: ml
         name: MegaLinter
         uses: oxsecurity/megalinter@v8
-        # ref: <https://megalinter.io/latest/config-file/>
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          # https://megalinter.io/latest/config-variables/
           # Common Variables
           MEGALINTER_CONFIG: .github/.mega-linter.yaml
           VALIDATE_ALL_CODEBASE: true
@@ -50,6 +73,14 @@ jobs:
           CONSOLE_REPORTER: true
           JSON_REPORTER: true
           MARKDOWN_SUMMARY_REPORTER: true
+      - if: success() || failure()
+        name: Remove Linter Rules
+        run: |-
+          IFS=" " read -a MISSING_LINTER_RULES -r <<< "$MISSING_LINTER_RULES"
+          for rule in "${MISSING_LINTER_RULES[@]}"; do
+            rm --force --verbose ".github/linters/$rule"
+            printf "\x1b[92mREMOVED: %s\x1b[0m\n" ".github/linters/$rule"
+          done
       - if: success() || failure()
         name: Archive production artifacts
         uses: actions/upload-artifact@v4
@@ -66,80 +97,3 @@ jobs:
       - if: success() || failure()
         name: Add GitHub summary
         run: cat megalinter-reports/megalinter-report.md >> "$GITHUB_STEP_SUMMARY"
-      - id: cpr
-        if: >-
-          steps.ml.outputs.has_updated_sources == 1 &&
-          (
-            env.APPLY_FIXES_EVENT == 'all' ||
-            env.APPLY_FIXES_EVENT == github.event_name
-          ) &&
-          env.APPLY_FIXES_MODE == 'pull_request' &&
-          (
-            github.event_name == 'push' ||
-            github.event.pull_request.head.repo.full_name == github.repository
-          ) &&
-          !contains(github.event.head_commit.message, 'skip fix')
-        name: Create Pull Request with applied fixes
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ github.token }}
-          commit-message: "chore(mega-linter): apply linters automatic fixes"
-          title: "chore(mega-linter): apply linters automatic fixes"
-          # TODO: add labels
-      - if: >-
-          steps.ml.outputs.has_updated_sources == 1 &&
-          (
-            env.APPLY_FIXES_EVENT == 'all' ||
-            env.APPLY_FIXES_EVENT == github.event_name
-          ) &&
-          env.APPLY_FIXES_MODE == 'pull_request' &&
-          (
-            github.event_name == 'push' ||
-            github.event.pull_request.head.repo.full_name == github.repository
-          ) &&
-          !contains(github.event.head_commit.message, 'skip fix')
-        name: Create PR output
-        run: |
-          echo "PR Number - ${{ steps.cpr.outputs.pull-request-number }}"
-          echo "PR URL - ${{ steps.cpr.outputs.pull-request-url }}"
-      - if: >-
-          steps.ml.outputs.has_updated_sources == 1 &&
-          (
-            env.APPLY_FIXES_EVENT == 'all' ||
-            env.APPLY_FIXES_EVENT == github.event_name
-          ) &&
-          env.APPLY_FIXES_MODE == 'commit' &&
-          github.ref != 'refs/heads/main' &&
-          (
-            github.event_name == 'push' ||
-            github.event.pull_request.head.repo.full_name == github.repository
-          ) &&
-          !contains(github.event.head_commit.message, 'skip fix')
-        name: Prepare commit
-        run: sudo chown -Rc $UID .git/
-      - if: >-
-          steps.ml.outputs.has_updated_sources == 1 &&
-          (
-            env.APPLY_FIXES_EVENT == 'all' ||
-            env.APPLY_FIXES_EVENT == github.event_name
-          ) &&
-          env.APPLY_FIXES_MODE == 'commit' &&
-          github.ref != 'refs/heads/main' &&
-          (
-            github.event_name == 'push' ||
-            github.event.pull_request.head.repo.full_name == github.repository
-          ) &&
-          !contains(github.event.head_commit.message, 'skip fix')
-        name: Commit and push applied linter fixes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore(mega-linter): apply linters fixes"
-          branch: >-
-            ${{
-              github.event.pull_request.head.ref ||
-              github.head_ref ||
-              github.ref
-            }}
-          add_options: --update
-          commit_user_name: megalinter-bot
-          commit_user_email: nicolas.vuillamy@ox.security
